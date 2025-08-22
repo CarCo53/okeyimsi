@@ -8,7 +8,7 @@ class Player:
         self.isim = isim
         self.el = []  # Elimizdeki taşlar (Tile nesneleri)
 
-    @logger.log_function
+    #@logger.log_function
     def tas_al(self, tas: 'Tile'):
         """Eline taş ekle."""
         if tas:

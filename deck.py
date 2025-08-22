@@ -9,7 +9,7 @@ class Deck:
     def __init__(self):
         self.taslar = []
 
-    @logger.log_function
+    #@logger.log_function
     def olustur(self):
         """106 taşı oluşturur ve desteye ekler."""
         self.taslar = []
@@ -23,11 +23,11 @@ class Deck:
             id = benzersiz_id_uret()
             self.taslar.append(Tile("joker", None, "fake_okey.png", id))
 
-    @logger.log_function
+    #@logger.log_function
     def karistir(self):
         random.shuffle(self.taslar)
 
-    @logger.log_function
+    #@logger.log_function
     def tas_cek(self):
         if self.taslar:
             return self.taslar.pop()

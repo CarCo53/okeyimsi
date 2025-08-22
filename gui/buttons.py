@@ -17,7 +17,6 @@ class ButtonManager:
         self.butonlar["desteden_cek"] = tk.Button(frame, text="Desteden Çek", command=self.desteden_cek)
         self.butonlar["el_ac"] = tk.Button(frame, text="Elini Aç", command=self.el_ac)
         self.butonlar["tas_at"] = tk.Button(frame, text="Taş At", command=self.tas_at)
-        # --- YENİ EKLENEN: Yeni Oyun butonu ---
         self.butonlar["yeni_oyun"] = tk.Button(frame, text="Yeni Oyun", command=self.yeni_oyun)
         
         for btn in self.butonlar.values():
@@ -31,32 +30,37 @@ class ButtonManager:
             btn.config(state=tk.DISABLED)
         
         oyun = self.arayuz.oyun
+        sira_bende = oyun.sira_kimde_index == 0
         
-        if oyun_durumu == GameState.NORMAL_TUR:
-            if oyun.sira_kimde_index == 0:
+        # *** DÜZELTME: ILK_TUR durumu için eksik olan koşul eklendi ***
+        if oyun_durumu == GameState.ILK_TUR:
+            if sira_bende:
+                self.butonlar["tas_at"].config(state=tk.NORMAL)
+
+        elif oyun_durumu == GameState.NORMAL_TUR:
+            if sira_bende:
                 self.butonlar["el_ac"].config(state=tk.NORMAL)
                 self.butonlar["desteden_cek"].config(state=tk.NORMAL)
-                self.butonlar["tas_at"].config(state=tk.NORMAL)
+                
         elif oyun_durumu == GameState.ATILAN_TAS_DEGERLENDIRME:
-            if oyun.atilan_tas_degerlendirici and oyun.atilan_tas_degerlendirici.siradaki() == 0:
+            degerlendiren_ben_miyim = oyun.atilan_tas_degerlendirici and oyun.atilan_tas_degerlendirici.siradaki() == 0
+            if degerlendiren_ben_miyim:
+                # İlk oyuncu oyunun başında yerden taş alamaz
                 if not (oyun.sira_kimde_index == 0 and not oyun.oyun_basladi_mi):
                     self.butonlar["yerden_al"].config(state=tk.NORMAL)
                 self.butonlar["gec"].config(state=tk.NORMAL)
+
         elif oyun_durumu == GameState.NORMAL_TAS_ATMA:
-            if oyun.sira_kimde_index == 0:
+            if sira_bende:
+                if oyun.acilmis_oyuncular[0]:
+                    self.butonlar["el_ac"].config(state=tk.NORMAL) # Taş işleme veya yeni per açma için
                 self.butonlar["tas_at"].config(state=tk.NORMAL)
-        # --- YENİ EKLENEN: Oyun bitince sadece "Yeni Oyun" aktif ---
+
         elif oyun_durumu == GameState.BITIS:
             self.butonlar["yeni_oyun"].config(state=tk.NORMAL)
 
-    # --- Buton aksiyonları ---
     def yerden_al(self):
-        oyun = self.arayuz.oyun
-        if oyun.sira_kimde_index == 0 and not oyun.oyun_basladi_mi:
-            self.arayuz.statusbar.guncelle("İlk oyuncu oyun başlangıcında yerden taş alamaz!")
-            return
-            
-        oyun.atilan_tasi_al(0)
+        self.arayuz.oyun.atilan_tasi_al(0)
         self.arayuz.arayuzu_guncelle()
 
     def gec(self):
@@ -74,11 +78,7 @@ class ButtonManager:
                 self.arayuz.secili_tas_idler = []
                 self.arayuz.statusbar.guncelle("Per başarıyla açıldı!")
             else:
-                oyun = self.arayuz.oyun
-                if not oyun.acilmis_oyuncular[0]:
-                    self.arayuz.statusbar.guncelle(f"Bu per mevcut görev ({oyun.mevcut_gorev}) için uygun değil!")
-                else:
-                    self.arayuz.statusbar.guncelle("Geçersiz per!")
+                self.arayuz.statusbar.guncelle("Geçersiz per veya okey için seçim gerekli!")
             self.arayuz.arayuzu_guncelle()
 
     def tas_at(self):
@@ -86,12 +86,10 @@ class ButtonManager:
         if len(secili) == 1:
             self.arayuz.oyun.tas_at(0, secili[0])
             self.arayuz.secili_tas_idler = []
-            self.arayuz.arayuzu_guncelle()
         else:
             self.arayuz.statusbar.guncelle("Lütfen atmak için sadece 1 taş seçin.")
+        self.arayuz.arayuzu_guncelle()
 
-    # --- YENİ EKLENEN: Yeni oyun başlatma fonksiyonu ---
     def yeni_oyun(self):
-        """Yeni oyun butonu aksiyonu."""
         self.arayuz.oyun.baslat()
         self.arayuz.arayuzu_guncelle()

@@ -96,6 +96,9 @@ class Game:
         if oyuncu_index == asil_sira_index:
             self.sira_kimde_index = oyuncu_index
             self.oyun_durumu = GameState.NORMAL_TAS_ATMA
+            # *** DÜZELTME: Sıradaki oyuncu yerden aldığında da bayrak sıfırlanmalı ***
+            self.turda_tas_cekildi = [False for _ in range(4)]
+            self.atilan_tas_degerlendirici = None
         else:
             ceza_tas = self.deste.tas_cek()
             if ceza_tas: alici_oyuncu.tas_al(ceza_tas)
@@ -103,8 +106,11 @@ class Game:
             self.atilan_tas_degerlendirici.gecen_ekle(oyuncu_index)
             self.atilan_tas_degerlendirici.bir_sonraki()
             if self.atilan_tas_degerlendirici.herkes_gecti_mi():
-                 self.sira_kimde_index = oyuncu_index
-                 self.oyun_durumu = GameState.NORMAL_TAS_ATMA
+                 self.sira_kimde_index = asil_sira_index
+                 self.oyun_durumu = GameState.NORMAL_TUR
+                 # *** DÜZELTME: Herkes geçtiğinde bayrak sıfırlanmalı ***
+                 self.turda_tas_cekildi = [False for _ in range(4)]
+                 self.atilan_tas_degerlendirici = None
 
     @logger.log_function
     def atilan_tasi_gecti(self):
@@ -114,8 +120,11 @@ class Game:
         self.atilan_tas_degerlendirici.bir_sonraki()
         
         if self.atilan_tas_degerlendirici.herkes_gecti_mi():
+            # Herkes geçti, asıl sırası olan oyuncu desteden çeker
             self.sira_kimde_index = self.atilan_tas_degerlendirici.asilin_sirasi()
             self.oyun_durumu = GameState.NORMAL_TUR
+            # *** DÜZELTME: Kısır döngüyü önleyen kritik satır ***
+            self.turda_tas_cekildi = [False for _ in range(4)]
             self.atilan_tas_degerlendirici = None
 
     @logger.log_function
@@ -195,7 +204,7 @@ class Game:
         if self.oyun_durumu == GameState.ILK_TUR: return False
         oyuncu_eli_sayisi = len(self.oyuncular[oyuncu_index].el)
         # 13, 10, 7, 4, 1 gibi sayılarda çekmesi gerekir
-        return oyuncu_eli_sayisi % 3 == 1
+        return oyuncu_eli_sayisi % 3 != 2
 
     def oyun_bitti_mi(self):
         if self.oyun_durumu == GameState.BITIS: return True

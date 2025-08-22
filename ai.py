@@ -1,7 +1,7 @@
 from player import Player
 import random
 from log import logger
-from rules_manager import Rules # Değiştirildi
+from rules_manager import Rules
 from itertools import combinations
 
 class AIPlayer(Player):
@@ -26,12 +26,13 @@ class AIPlayer(Player):
     def ai_el_ac_dene(self, oyun, oyuncu_index):
         if oyun.acilmis_oyuncular[oyuncu_index]:
             return None
+        
         gorev = oyun.mevcut_gorev
-        min_tas = 6
-        if "4" in gorev: min_tas = 8
-        if "5" in gorev: min_tas = 5
-        if "Çift" in gorev: min_tas = 14
-        for size in range(min_tas, len(self.el) + 1):
+        
+        # *** DÜZELTME: Hatalı min_tas tahmini kaldırıldı. ***
+        # Artık AI, 3'lü kombinasyonlardan başlayarak elindeki taş sayısına kadar tüm
+        # olası perleri dener. Bu, "Küt 4" gibi görevleri kaçırmasını engeller.
+        for size in range(3, len(self.el) + 1):
             for combo in combinations(self.el, size):
                 if Rules.per_dogrula(list(combo), gorev):
                     return [tas.id for tas in combo]

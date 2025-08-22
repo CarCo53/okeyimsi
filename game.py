@@ -1,11 +1,11 @@
 from deck import Deck
 from player import Player
 from ai import AIPlayer
-from rules_manager import Rules # Değiştirildi
+from rules_manager import Rules
 from state import GameState, AtilanTasDegerlendirici
 from log import logger
 from tile import Tile
-import random # Eklendi
+import random
 
 class Game:
     def __init__(self):
@@ -24,12 +24,12 @@ class Game:
         self.atilan_tas_degerlendirici = None
         self.oyun_basladi_mi = False
         self.acilmis_oyuncular = [False for _ in range(4)]
-        self.mevcut_gorev = None # Değiştirildi
+        self.mevcut_gorev = None
         self.kazanan_index = None
 
     @logger.log_function
     def baslat(self):
-        self.mevcut_gorev = random.choice(Rules.GOREVLER) # Değiştirildi
+        self.mevcut_gorev = random.choice(Rules.GOREVLER)
         self.kazanan_index = None
         self.deste.olustur()
         self.deste.karistir()
@@ -72,24 +72,45 @@ class Game:
 
     @logger.log_function
     def atilan_tasi_al(self, oyuncu_index):
-        # Orijinal, doğru çalışan fonksiyon
+        # *** DÜZELTME: Fonksiyon, orijinal ve doğru çalışan mantığına geri döndürüldü ***
         if self.oyun_durumu != GameState.ATILAN_TAS_DEGERLENDIRME: return
+
+        # Atılan taşın listede olduğundan emin ol
+        if not self.atilan_taslar:
+            logger.warning("Yerden alınacak taş bulunamadı!")
+            return
+
         alici_oyuncu = self.oyuncular[oyuncu_index]
         atilan_tas = self.atilan_taslar.pop()
         alici_oyuncu.tas_al(atilan_tas)
+        
         asil_sira_index = self.atilan_tas_degerlendirici.asilin_sirasi()
-        if oyuncu_index != asil_sira_index:
+
+        # Eğer sırası gelen doğru oyuncu taşı aldıysa
+        if oyuncu_index == asil_sira_index:
+            alici_oyuncu.el_sirala()
+            self.sira_kimde_index = oyuncu_index
+            self.oyun_durumu = GameState.NORMAL_TAS_ATMA
+            self.turda_tas_cekildi = [False for _ in range(4)]
+            self.atilan_tas_degerlendirici = None
+        # Eğer oyuncu sırası gelmeden (cezalı olarak) taşı aldıysa
+        else:
             ceza_tas = self.deste.tas_cek()
-            if ceza_tas: alici_oyuncu.tas_al(ceza_tas)
-        alici_oyuncu.el_sirala()
-        self.sira_kimde_index = oyuncu_index
-        self.oyun_durumu = GameState.NORMAL_TAS_ATMA
-        self.turda_tas_cekildi = [False for _ in range(4)]
-        self.atilan_tas_degerlendirici = None
+            if ceza_tas:
+                alici_oyuncu.tas_al(ceza_tas)
+            alici_oyuncu.el_sirala()
+            
+            # Değerlendirme devam eder, sadece bu oyuncu atlanır
+            self.atilan_tas_degerlendirici.gecen_ekle(oyuncu_index)
+            # Sıra, taşı atan oyuncunun sağındakine geçer ve o desteden çeker
+            self.sira_kimde_index = asil_sira_index
+            self.oyun_durumu = GameState.NORMAL_TUR
+            self.turda_tas_cekildi = [False for _ in range(4)]
+            self.atilan_tas_degerlendirici = None
+
 
     @logger.log_function
     def atilan_tasi_gecti(self):
-        # Orijinal, doğru çalışan fonksiyon
         if self.oyun_durumu != GameState.ATILAN_TAS_DEGERLENDIRME: return
         self.atilan_tas_degerlendirici.gecen_ekle(self.atilan_tas_degerlendirici.siradaki())
         self.atilan_tas_degerlendirici.bir_sonraki()
@@ -112,7 +133,7 @@ class Game:
             self.oyun_durumu = GameState.NORMAL_TAS_ATMA
             return True
         return False
-
+        
     @logger.log_function
     def el_ac(self, oyuncu_index, tas_id_list):
         oyuncu = self.oyuncular[oyuncu_index]
@@ -161,7 +182,7 @@ class Game:
             self.oyun_durumu = GameState.NORMAL_TAS_ATMA
             return True
         return False
-
+    
     @logger.log_function
     def oyuncunun_tas_cekme_ihtiyaci(self, oyuncu_index):
         if self.oyun_durumu == GameState.ILK_TUR: return False

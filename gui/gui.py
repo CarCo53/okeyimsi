@@ -52,7 +52,8 @@ class Arayuz:
         return frame
 
     def arayuzu_guncelle(self):
-        for i, oyuncu in enumerate(self.oyun.oyuncular):
+        oyun = self.oyun
+        for i, oyuncu in enumerate(oyun.oyuncular):
             key = f"oyuncu_{i+1}"
             frame = self.alanlar[key]
             frame.config(text=f"{oyuncu.isim} ({len(oyuncu.el)} taş)")
@@ -70,9 +71,9 @@ class Arayuz:
         for widget in self.masa_frame.winfo_children():
             widget.destroy()
         
-        for oyuncu_idx, per_listesi in self.oyun.acilan_perler.items():
+        for oyuncu_idx, per_listesi in oyun.acilan_perler.items():
             if not per_listesi: continue
-            oyuncu_adi = self.oyun.oyuncular[oyuncu_idx].isim
+            oyuncu_adi = oyun.oyuncular[oyuncu_idx].isim
             oyuncu_per_cercevesi = tk.Frame(self.masa_frame)
             oyuncu_per_cercevesi.pack(anchor="w", pady=2)
             tk.Label(oyuncu_per_cercevesi, text=f"{oyuncu_adi}:", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=5)
@@ -99,45 +100,50 @@ class Arayuz:
         for widget in self.deste_frame.winfo_children():
              if widget != self.deste_sayisi_label:
                 widget.destroy()
-        self.deste_sayisi_label.config(text=f"Kalan: {len(self.oyun.deste.taslar)}")
-        if self.oyun.deste.taslar:
+        self.deste_sayisi_label.config(text=f"Kalan: {len(oyun.deste.taslar)}")
+        if oyun.deste.taslar:
              img_kapali = self.visuals.tas_resimleri.get("kapali.png")
              if img_kapali:
                  tk.Label(self.deste_frame, image=img_kapali).pack()
 
+        if oyun.oyun_durumu == GameState.ATILAN_TAS_DEGERLENDIRME and oyun.atilan_tas_degerlendirici:
+            atan_index = oyun.atilan_tas_degerlendirici.tasi_atan_index
+            atan_oyuncu_adi = oyun.oyuncular[atan_index].isim
+            self.atilan_frame.config(text=f"Atan Oyuncu: {atan_oyuncu_adi}")
+        else:
+            self.atilan_frame.config(text="Atılan Taşlar")
+
         for widget in self.atilan_frame.winfo_children():
             widget.destroy()
-        for tas in self.oyun.atilan_taslar:
+        for tas in oyun.atilan_taslar:
              img = self.visuals.tas_resimleri.get(tas.imaj_adi)
              if img:
                  label = tk.Label(self.atilan_frame, image=img)
                  label.pack(side=tk.LEFT)
 
-        self.button_manager.butonlari_guncelle(self.oyun.oyun_durumu)
+        self.button_manager.butonlari_guncelle(oyun.oyun_durumu)
         
-        if self.oyun.oyun_durumu == GameState.BITIS:
-            kazanan = self.oyun.oyuncular[self.oyun.kazanan_index]
+        if oyun.oyun_durumu == GameState.BITIS:
+            kazanan = oyun.oyuncular[oyun.kazanan_index]
             self.statusbar.guncelle(f"Oyun Bitti! Kazanan: {kazanan.isim}. Yeni oyuna başlayabilirsiniz.")
         else:
-            oyuncu_durum = "Açılmış" if self.oyun.acilmis_oyuncular[0] else f"Görev: {self.oyun.mevcut_gorev}"
-            sira_bilgi = f"Sıra: {self.oyun.oyuncular[self.oyun.sira_kimde_index].isim}"
-            if self.oyun.oyun_durumu == GameState.ATILAN_TAS_DEGERLENDIRME:
-                degerlendiren = self.oyun.oyuncular[self.oyun.atilan_tas_degerlendirici.siradaki()].isim
+            oyuncu_durum = "Açılmış" if oyun.acilmis_oyuncular[0] else f"Görev: {oyun.mevcut_gorev}"
+            sira_bilgi = f"Sıra: {oyun.oyuncular[oyun.sira_kimde_index].isim}"
+            if oyun.oyun_durumu == GameState.ATILAN_TAS_DEGERLENDIRME:
+                degerlendiren_idx = oyun.atilan_tas_degerlendirici.siradaki()
+                degerlendiren = oyun.oyuncular[degerlendiren_idx].isim
                 sira_bilgi = f"Değerlendiren: {degerlendiren}"
-            elif self.oyun.oyun_durumu == GameState.ILK_TUR:
-                sira_bilgi = f"Sıra: {self.oyun.oyuncular[self.oyun.sira_kimde_index].isim} (Taş atarak başlayın)"
+            elif oyun.oyun_durumu == GameState.ILK_TUR:
+                sira_bilgi = f"Sıra: {oyun.oyuncular[oyun.sira_kimde_index].isim} (Taş atarak başlayın)"
 
             self.statusbar.guncelle(f"{sira_bilgi} | {oyuncu_durum}")
         
         self.pencere.after(500, self.ai_oynat)
 
     def tas_sec(self, tas_id):
-        # *** DÜZELTME: El açtıktan sonra çoklu seçimi bozan hatalı mantık kaldırıldı ***
         if tas_id in self.secili_tas_idler:
             self.secili_tas_idler.remove(tas_id)
         else:
-            # Artık herhangi bir koşul olmadan seçilen taşı listeye ekliyoruz.
-            # Bu sayede hem taş işlemek için tek taş, hem de yeni per açmak için çoklu taş seçilebilir.
             self.secili_tas_idler.append(tas_id)
         self.arayuzu_guncelle()
 
@@ -164,6 +170,8 @@ class Arayuz:
             degerlendiren_idx = oyun.atilan_tas_degerlendirici.siradaki()
             if degerlendiren_idx != 0:
                 ai = oyun.oyuncular[degerlendiren_idx]
+                if not oyun.atilan_taslar:
+                    return
                 atilan_tas = oyun.atilan_taslar[-1]
                 if ai.atilan_tasi_degerlendir(oyun, atilan_tas):
                     oyun.atilan_tasi_al(degerlendiren_idx)
@@ -191,6 +199,7 @@ class Arayuz:
                 if ac_kombo:
                     oyun.el_ac(sira_index, ac_kombo)
             
+            # *** DÜZELTME: Hatalı olan satır düzeltildi ***
             if oyun.oyuncunun_tas_cekme_ihtiyaci(sira_index):
                  oyun.desteden_cek(sira_index)
             

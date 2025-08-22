@@ -3,6 +3,7 @@ from gui.visuals import Visuals
 from gui.buttons import ButtonManager
 from gui.status import StatusBar
 from state import GameState
+from arayuzguncelle import arayuzu_guncelle
 
 class Arayuz:
     def __init__(self, oyun):
@@ -52,93 +53,7 @@ class Arayuz:
         return frame
 
     def arayuzu_guncelle(self):
-        oyun = self.oyun
-        for i, oyuncu in enumerate(oyun.oyuncular):
-            key = f"oyuncu_{i+1}"
-            frame = self.alanlar[key]
-            frame.config(text=f"{oyuncu.isim} ({len(oyuncu.el)} taş)")
-            for widget in frame.winfo_children():
-                widget.destroy()
-            for tas in oyuncu.el:
-                img = self.visuals.tas_resimleri.get(tas.imaj_adi)
-                if img:
-                    border = "yellow" if tas.id in self.secili_tas_idler and i == 0 else "#F7F5F2"
-                    label = tk.Label(frame, image=img, bg=border)
-                    label.pack(side=tk.LEFT, padx=1, pady=1)
-                    if i == 0:
-                        label.bind("<Button-1>", lambda e, t_id=tas.id: self.tas_sec(t_id))
-        
-        for widget in self.masa_frame.winfo_children():
-            widget.destroy()
-        
-        for oyuncu_idx, per_listesi in oyun.acilan_perler.items():
-            if not per_listesi: continue
-            oyuncu_adi = oyun.oyuncular[oyuncu_idx].isim
-            oyuncu_per_cercevesi = tk.Frame(self.masa_frame)
-            oyuncu_per_cercevesi.pack(anchor="w", pady=2)
-            tk.Label(oyuncu_per_cercevesi, text=f"{oyuncu_adi}:", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=5)
-
-            for per_idx, per in enumerate(per_listesi):
-                per_cerceve_dis = tk.Frame(oyuncu_per_cercevesi)
-                per_cerceve_dis.pack(side=tk.LEFT, padx=5)
-                for tas in per:
-                    cerceve_renk = "#F0F0F0"
-                    padding = 0
-                    if tas.joker_yerine_gecen:
-                        cerceve_renk = tas.joker_yerine_gecen.renk
-                        padding = 5
-                    
-                    tas_cerceve = tk.Frame(per_cerceve_dis, bg=cerceve_renk, padx=padding, pady=padding)
-                    tas_cerceve.pack(side=tk.LEFT)
-
-                    img = self.visuals.tas_resimleri.get(tas.imaj_adi)
-                    if img:
-                        label = tk.Label(tas_cerceve, image=img, borderwidth=0)
-                        label.pack()
-                        label.bind("<Button-1>", lambda e, o_idx=oyuncu_idx, p_idx=per_idx: self.per_sec(o_idx, p_idx))
-
-        for widget in self.deste_frame.winfo_children():
-             if widget != self.deste_sayisi_label:
-                widget.destroy()
-        self.deste_sayisi_label.config(text=f"Kalan: {len(oyun.deste.taslar)}")
-        if oyun.deste.taslar:
-             img_kapali = self.visuals.tas_resimleri.get("kapali.png")
-             if img_kapali:
-                 tk.Label(self.deste_frame, image=img_kapali).pack()
-
-        if oyun.oyun_durumu == GameState.ATILAN_TAS_DEGERLENDIRME and oyun.atilan_tas_degerlendirici:
-            atan_index = oyun.atilan_tas_degerlendirici.tasi_atan_index
-            atan_oyuncu_adi = oyun.oyuncular[atan_index].isim
-            self.atilan_frame.config(text=f"Atan Oyuncu: {atan_oyuncu_adi}")
-        else:
-            self.atilan_frame.config(text="Atılan Taşlar")
-
-        for widget in self.atilan_frame.winfo_children():
-            widget.destroy()
-        for tas in oyun.atilan_taslar:
-             img = self.visuals.tas_resimleri.get(tas.imaj_adi)
-             if img:
-                 label = tk.Label(self.atilan_frame, image=img)
-                 label.pack(side=tk.LEFT)
-
-        self.button_manager.butonlari_guncelle(oyun.oyun_durumu)
-        
-        if oyun.oyun_durumu == GameState.BITIS:
-            kazanan = oyun.oyuncular[oyun.kazanan_index]
-            self.statusbar.guncelle(f"Oyun Bitti! Kazanan: {kazanan.isim}. Yeni oyuna başlayabilirsiniz.")
-        else:
-            oyuncu_durum = "Açılmış" if oyun.acilmis_oyuncular[0] else f"Görev: {oyun.mevcut_gorev}"
-            sira_bilgi = f"Sıra: {oyun.oyuncular[oyun.sira_kimde_index].isim}"
-            if oyun.oyun_durumu == GameState.ATILAN_TAS_DEGERLENDIRME:
-                degerlendiren_idx = oyun.atilan_tas_degerlendirici.siradaki()
-                degerlendiren = oyun.oyuncular[degerlendiren_idx].isim
-                sira_bilgi = f"Değerlendiren: {degerlendiren}"
-            elif oyun.oyun_durumu == GameState.ILK_TUR:
-                sira_bilgi = f"Sıra: {oyun.oyuncular[oyun.sira_kimde_index].isim} (Taş atarak başlayın)"
-
-            self.statusbar.guncelle(f"{sira_bilgi} | {oyuncu_durum}")
-        
-        self.pencere.after(500, self.ai_oynat)
+        arayuzu_guncelle(self)
 
     def tas_sec(self, tas_id):
         if tas_id in self.secili_tas_idler:

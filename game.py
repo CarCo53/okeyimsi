@@ -6,6 +6,7 @@ from state import GameState, AtilanTasDegerlendirici
 from log import logger
 from tile import Tile
 import random
+from baslat import baslat_oyun
 
 class Game:
     def __init__(self):
@@ -29,24 +30,7 @@ class Game:
 
     @logger.log_function
     def baslat(self):
-        self.mevcut_gorev = random.choice(Rules.GOREVLER)
-        self.kazanan_index = None
-        self.deste.olustur()
-        self.deste.karistir()
-        self.sira_kimde_index = 0 
-        for i, oyuncu in enumerate(self.oyuncular):
-            oyuncu.el = []
-            tas_sayisi = 14 if i == self.sira_kimde_index else 13
-            for _ in range(tas_sayisi):
-                oyuncu.tas_al(self.deste.tas_cek())
-            oyuncu.el_sirala()
-        self.oyun_durumu = GameState.ILK_TUR
-        self.atilan_taslar = []
-        self.acilan_perler = {i: [] for i in range(4)}
-        self.turda_tas_cekildi = [False for _ in range(4)]
-        self.atilan_tas_degerlendirici = None
-        self.oyun_basladi_mi = False
-        self.acilmis_oyuncular = [False for _ in range(4)]
+        baslat_oyun(self)
 
     @logger.log_function
     def tas_at(self, oyuncu_index, tas_id):

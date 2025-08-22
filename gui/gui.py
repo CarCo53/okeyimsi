@@ -132,13 +132,13 @@ class Arayuz:
         self.pencere.after(500, self.ai_oynat)
 
     def tas_sec(self, tas_id):
+        # *** DÜZELTME: El açtıktan sonra çoklu seçimi bozan hatalı mantık kaldırıldı ***
         if tas_id in self.secili_tas_idler:
             self.secili_tas_idler.remove(tas_id)
         else:
-            if len(self.secili_tas_idler) >= 1 and self.oyun.acilmis_oyuncular[0]:
-                 self.secili_tas_idler = [tas_id]
-            else:
-                 self.secili_tas_idler.append(tas_id)
+            # Artık herhangi bir koşul olmadan seçilen taşı listeye ekliyoruz.
+            # Bu sayede hem taş işlemek için tek taş, hem de yeni per açmak için çoklu taş seçilebilir.
+            self.secili_tas_idler.append(tas_id)
         self.arayuzu_guncelle()
 
     def per_sec(self, oyuncu_index, per_index):
@@ -160,12 +160,8 @@ class Arayuz:
         
         oyun = self.oyun
         
-        # *** DÜZELTME: Fonksiyonun mantığı düzeltildi ***
-
-        # 1. Adım: Değerlendirme durumunu kontrol et. Bu durum, sıradan bağımsızdır.
         if oyun.oyun_durumu == GameState.ATILAN_TAS_DEGERLENDIRME and oyun.atilan_tas_degerlendirici:
             degerlendiren_idx = oyun.atilan_tas_degerlendirici.siradaki()
-            # Eğer değerlendirme sırası bir yapay zekadaysa, kararını ver.
             if degerlendiren_idx != 0:
                 ai = oyun.oyuncular[degerlendiren_idx]
                 atilan_tas = oyun.atilan_taslar[-1]
@@ -174,14 +170,12 @@ class Arayuz:
                 else:
                     oyun.atilan_tasi_gecti()
                 self.arayuzu_guncelle()
-            return # Değerlendirme adımı yapıldı, bu döngüyü bitir.
+            return
 
-        # 2. Adım: Sıranın yapay zekada olup olmadığını kontrol et.
         sira_index = oyun.sira_kimde_index
         if sira_index == 0:
-            return # Sıra insandaysa bir şey yapma.
+            return
 
-        # 3. Adım: Sırası gelen yapay zeka hamlesini yapsın.
         ai = oyun.oyuncular[sira_index]
         if oyun.oyun_durumu == GameState.ILK_TUR:
              tas = ai.karar_ver_ve_at()
@@ -190,7 +184,7 @@ class Arayuz:
 
         elif oyun.oyun_durumu == GameState.NORMAL_TUR:
             if oyun.acilmis_oyuncular[sira_index] and ai.isleme_dene(oyun, sira_index):
-                pass # Taş işlediyse durum NORMAL_TAS_ATMA'ya geçti, devam etmeli.
+                pass
             
             if not oyun.acilmis_oyuncular[sira_index]:
                 ac_kombo = ai.ai_el_ac_dene(oyun, sira_index)
@@ -200,8 +194,6 @@ class Arayuz:
             if oyun.oyuncunun_tas_cekme_ihtiyaci(sira_index):
                  oyun.desteden_cek(sira_index)
             
-            # Eğer yukarıdaki adımlar sonrası hala taş atması gerekiyorsa (elinde fazla taş kaldıysa)
-            # ve durum değişmediyse, direkt taş at.
             if len(ai.el) % 3 != 1:
                 tas = ai.karar_ver_ve_at()
                 if tas: oyun.tas_at(sira_index, tas.id)

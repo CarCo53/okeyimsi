@@ -3,7 +3,7 @@ from gui.visuals import Visuals
 from gui.buttons import ButtonManager
 from gui.status import StatusBar
 from state import GameState
-from arayuzguncelle import arayuzu_guncelle
+from .arayuzguncelle import arayuzu_guncelle
 
 class Arayuz:
     def __init__(self, oyun):

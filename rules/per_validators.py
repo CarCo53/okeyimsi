@@ -67,20 +67,25 @@ def karma_per_dogrula(taslar, min_sayi):
     return False
 
 def cift_per_mu(taslar):
+    """Bir elin 7 çiftten oluşup oluşmadığını kontrol eder."""
     if len(taslar) != 14:
         return False
-    deger_gruplari = {}
+    
+    tas_gruplari = {}
     joker_sayisi = 0
+    
     for tas in taslar:
         if tas.renk == "joker":
             joker_sayisi += 1
         else:
-            deger = tas.deger
-            if deger not in deger_gruplari:
-                deger_gruplari[deger] = 0
-            deger_gruplari[deger] += 1
+            # DÜZELTME: Taşları sadece değerine göre değil, (renk, değer) ikilisine göre grupla
+            anahtar = (tas.renk, tas.deger)
+            tas_gruplari[anahtar] = tas_gruplari.get(anahtar, 0) + 1
+            
     tek_kalan_sayisi = 0
-    for deger, sayi in deger_gruplari.items():
+    for sayi in tas_gruplari.values():
         if sayi % 2 != 0:
             tek_kalan_sayisi += 1
+            
+    # Tek kalan taşlar jokerlerle eşleşebiliyorsa el geçerlidir.
     return joker_sayisi >= tek_kalan_sayisi

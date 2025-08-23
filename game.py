@@ -27,10 +27,20 @@ class Game:
         self.acilmis_oyuncular = [False for _ in range(4)]
         self.mevcut_gorev = None
         self.kazanan_index = None
+        self.tur_numarasi = 1
+        self.ilk_el_acan_tur = {}
 
     @logger.log_function
     def baslat(self):
         baslat_oyun(self)
+        self.tur_numarasi = 1
+        self.ilk_el_acan_tur = {}
+
+    def _sira_ilerlet(self, yeni_index):
+        if yeni_index < self.sira_kimde_index:
+            self.tur_numarasi += 1
+            logger.info(f"Yeni tura geçildi: Tur {self.tur_numarasi}")
+        self.sira_kimde_index = yeni_index
 
     @logger.log_function
     def tas_at(self, oyuncu_index, tas_id):
@@ -56,10 +66,8 @@ class Game:
 
     @logger.log_function
     def atilan_tasi_al(self, oyuncu_index):
-        # *** DÜZELTME: Fonksiyon, orijinal ve doğru çalışan mantığına geri döndürüldü ***
         if self.oyun_durumu != GameState.ATILAN_TAS_DEGERLENDIRME: return
 
-        # Atılan taşın listede olduğundan emin ol
         if not self.atilan_taslar:
             logger.warning("Yerden alınacak taş bulunamadı!")
             return
@@ -70,24 +78,20 @@ class Game:
         
         asil_sira_index = self.atilan_tas_degerlendirici.asilin_sirasi()
 
-        # Eğer sırası gelen doğru oyuncu taşı aldıysa
         if oyuncu_index == asil_sira_index:
             alici_oyuncu.el_sirala()
-            self.sira_kimde_index = oyuncu_index
+            self._sira_ilerlet(oyuncu_index)
             self.oyun_durumu = GameState.NORMAL_TAS_ATMA
             self.turda_tas_cekildi = [False for _ in range(4)]
             self.atilan_tas_degerlendirici = None
-        # Eğer oyuncu sırası gelmeden (cezalı olarak) taşı aldıysa
         else:
             ceza_tas = self.deste.tas_cek()
             if ceza_tas:
                 alici_oyuncu.tas_al(ceza_tas)
             alici_oyuncu.el_sirala()
             
-            # Değerlendirme devam eder, sadece bu oyuncu atlanır
             self.atilan_tas_degerlendirici.gecen_ekle(oyuncu_index)
-            # Sıra, taşı atan oyuncunun sağındakine geçer ve o desteden çeker
-            self.sira_kimde_index = asil_sira_index
+            self._sira_ilerlet(asil_sira_index)
             self.oyun_durumu = GameState.NORMAL_TUR
             self.turda_tas_cekildi = [False for _ in range(4)]
             self.atilan_tas_degerlendirici = None
@@ -99,7 +103,8 @@ class Game:
         self.atilan_tas_degerlendirici.gecen_ekle(self.atilan_tas_degerlendirici.siradaki())
         self.atilan_tas_degerlendirici.bir_sonraki()
         if self.atilan_tas_degerlendirici.herkes_gecti_mi():
-            self.sira_kimde_index = self.atilan_tas_degerlendirici.asilin_sirasi()
+            yeni_sira_index = self.atilan_tas_degerlendirici.asilin_sirasi()
+            self._sira_ilerlet(yeni_sira_index)
             self.oyun_durumu = GameState.NORMAL_TUR
             self.turda_tas_cekildi = [False for _ in range(4)]
             self.atilan_tas_degerlendirici = None
@@ -117,39 +122,68 @@ class Game:
             self.oyun_durumu = GameState.NORMAL_TAS_ATMA
             return True
         return False
+
+    def el_ac_joker_ile(self, oyuncu_index, secilen_taslar, joker, secilen_deger):
+        joker.joker_yerine_gecen = secilen_deger
+        return self._eli_ac_ve_isle(oyuncu_index, secilen_taslar)
+
+    def _eli_ac_ve_isle(self, oyuncu_index, secilen_taslar):
+        oyuncu = self.oyuncular[oyuncu_index]
+        gecerli_mi = False
+        if not self.acilmis_oyuncular[oyuncu_index]:
+            if Rules.per_dogrula(secilen_taslar, self.mevcut_gorev):
+                self.acilmis_oyuncular[oyuncu_index] = True
+                self.ilk_el_acan_tur[oyuncu_index] = self.tur_numarasi
+                gecerli_mi = True
+        else:
+            if self.tur_numarasi > self.ilk_el_acan_tur.get(oyuncu_index, -1):
+                if Rules.genel_per_dogrula(secilen_taslar):
+                    gecerli_mi = True
+            else:
+                logger.warning("Görev dışı per açmak için bir sonraki turu beklemelisiniz.")
+                return {"status": "fail", "message": "Görev dışı per açmak için bir sonraki turu beklemelisiniz."}
+
+        if gecerli_mi:
+            for tas in secilen_taslar:
+                oyuncu.tas_at(tas.id)
+            self.acilan_perler[oyuncu_index].append(secilen_taslar)
+            oyuncu.el_sirala()
+            return {"status": "success"}
+        else:
+            for tas in secilen_taslar:
+                if tas.renk == 'joker':
+                    tas.joker_yerine_gecen = None
+            return {"status": "fail", "message": "Geçersiz per."}
         
     @logger.log_function
     def el_ac(self, oyuncu_index, tas_id_list):
         oyuncu = self.oyuncular[oyuncu_index]
         secilen_taslar = [tas for tas in oyuncu.el if tas.id in tas_id_list]
         jokerler = [t for t in secilen_taslar if t.renk == 'joker']
-        if jokerler:
+
+        # Eğer görev karmaşık bir görevse (örn: "Küt 3 + Seri 3") ve joker varsa,
+        # basit joker kontrolünü atla ve doğrudan ana doğrulamaya git.
+        is_complex_mission = self.mevcut_gorev and " " in self.mevcut_gorev
+        
+        if jokerler and not is_complex_mission:
             olasi_secimler = Rules.joker_icin_olasi_taslar(secilen_taslar)
-            if olasi_secimler is None: return False
+            if olasi_secimler is None:
+                return {"status": "fail", "message": "Geçersiz per."}
+
             for joker, secenekler in olasi_secimler.items():
                 if len(secenekler) > 1:
                     logger.warning("Okey için birden fazla seçenek var, oyuncu seçimi gerekiyor.")
-                    return False 
+                    return {
+                        "status": "joker_choice_needed",
+                        "options": secenekler,
+                        "joker": joker,
+                        "secilen_taslar": secilen_taslar
+                    }
                 elif len(secenekler) == 1:
                     joker.joker_yerine_gecen = secenekler[0]
-        gecerli_mi = False
-        if not self.acilmis_oyuncular[oyuncu_index]:
-            if Rules.per_dogrula(secilen_taslar, self.mevcut_gorev):
-                self.acilmis_oyuncular[oyuncu_index] = True
-                gecerli_mi = True
-        else:
-            if Rules.genel_per_dogrula(secilen_taslar):
-                gecerli_mi = True
-        if gecerli_mi:
-            for tas in secilen_taslar:
-                oyuncu.tas_at(tas.id)
-            self.acilan_perler[oyuncu_index].append(secilen_taslar)
-            oyuncu.el_sirala()
-            return True
-        else:
-            for joker in jokerler:
-                joker.joker_yerine_gecen = None
-            return False
+        
+        # Karmaşık görevler veya jokersiz eller doğrudan bu fonksiyona gelir.
+        return self._eli_ac_ve_isle(oyuncu_index, secilen_taslar)
 
     @logger.log_function
     def islem_yap(self, isleyen_oyuncu_idx, per_sahibi_idx, per_idx, tas_id):
@@ -160,6 +194,7 @@ class Game:
         if per_sahibi_idx not in self.acilan_perler or per_idx >= len(self.acilan_perler[per_sahibi_idx]):
             return False
         per = self.acilan_perler[per_sahibi_idx][per_idx]
+        
         if Rules.islem_dogrula(per, tas):
             self.oyuncular[isleyen_oyuncu_idx].tas_at(tas.id)
             per.append(tas)

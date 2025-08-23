@@ -7,9 +7,6 @@ class ButtonManager:
         self.butonlar = {}
 
     def ekle_butonlar(self, parent):
-        """
-        Oyun arayüzüne butonları ekler.
-        """
         frame = tk.Frame(parent)
         frame.pack(pady=10)
         self.butonlar["yerden_al"] = tk.Button(frame, text="Yerden Al", command=self.yerden_al)
@@ -23,37 +20,33 @@ class ButtonManager:
             btn.pack(side=tk.LEFT, padx=8)
 
     def butonlari_guncelle(self, oyun_durumu):
-        """
-        Oyun durumuna göre hangi butonların aktif olacağını yönetir.
-        """
         for btn in self.butonlar.values():
             btn.config(state=tk.DISABLED)
         
         oyun = self.arayuz.oyun
         sira_bende = oyun.sira_kimde_index == 0
         
-        # *** DÜZELTME: ILK_TUR durumu için eksik olan koşul eklendi ***
         if oyun_durumu == GameState.ILK_TUR:
             if sira_bende:
                 self.butonlar["tas_at"].config(state=tk.NORMAL)
 
         elif oyun_durumu == GameState.NORMAL_TUR:
             if sira_bende:
+                # Sıra bize geldiğinde, taş çekmeden önce el açabiliriz.
                 self.butonlar["el_ac"].config(state=tk.NORMAL)
                 self.butonlar["desteden_cek"].config(state=tk.NORMAL)
                 
         elif oyun_durumu == GameState.ATILAN_TAS_DEGERLENDIRME:
             degerlendiren_ben_miyim = oyun.atilan_tas_degerlendirici and oyun.atilan_tas_degerlendirici.siradaki() == 0
             if degerlendiren_ben_miyim:
-                # İlk oyuncu oyunun başında yerden taş alamaz
                 if not (oyun.sira_kimde_index == 0 and not oyun.oyun_basladi_mi):
                     self.butonlar["yerden_al"].config(state=tk.NORMAL)
                 self.butonlar["gec"].config(state=tk.NORMAL)
 
         elif oyun_durumu == GameState.NORMAL_TAS_ATMA:
             if sira_bende:
-                if oyun.acilmis_oyuncular[0]:
-                    self.butonlar["el_ac"].config(state=tk.NORMAL) # Taş işleme veya yeni per açma için
+                # Desteden veya yerden taş çektikten sonra, taş atmadan önce de el açabilmeliyiz.
+                self.butonlar["el_ac"].config(state=tk.NORMAL)
                 self.butonlar["tas_at"].config(state=tk.NORMAL)
 
         elif oyun_durumu == GameState.BITIS:
@@ -72,14 +65,28 @@ class ButtonManager:
         self.arayuz.arayuzu_guncelle()
 
     def el_ac(self):
-        secili = self.arayuz.secili_tas_idler
-        if secili:
-            if self.arayuz.oyun.el_ac(0, secili):
-                self.arayuz.secili_tas_idler = []
-                self.arayuz.statusbar.guncelle("Per başarıyla açıldı!")
-            else:
-                self.arayuz.statusbar.guncelle("Geçersiz per veya okey için seçim gerekli!")
-            self.arayuz.arayuzu_guncelle()
+        secili_idler = self.arayuz.secili_tas_idler
+        if not secili_idler:
+            self.arayuz.statusbar.guncelle("Lütfen açmak için taş seçin.")
+            return
+
+        sonuc = self.arayuz.oyun.el_ac(0, secili_idler)
+
+        if sonuc.get("status") == "success":
+            self.arayuz.secili_tas_idler = []
+            self.arayuz.statusbar.guncelle("Per başarıyla açıldı!")
+        elif sonuc.get("status") == "joker_choice_needed":
+            self.arayuz.joker_secim_penceresi_ac(
+                sonuc["options"],
+                sonuc["joker"],
+                sonuc["secilen_taslar"]
+            )
+        else:
+            hata_mesaji = sonuc.get("message", "Geçersiz per!")
+            self.arayuz.statusbar.guncelle(hata_mesaji)
+        
+        self.arayuz.arayuzu_guncelle()
+
 
     def tas_at(self):
         secili = self.arayuz.secili_tas_idler

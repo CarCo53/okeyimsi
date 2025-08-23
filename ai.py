@@ -9,10 +9,24 @@ class AIPlayer(Player):
         super().__init__(isim)
 
     @logger.log_function
-    def karar_ver_ve_at(self):
-        if self.el:
-            return random.choice(self.el)
-        return None
+    def karar_ver_ve_at(self, oyun_context=None):
+        if not self.el:
+            return None
+
+        if oyun_context:
+            ise_yarayan_taslar = set()
+            for per_sahibi_idx, per_listesi in oyun_context.acilan_perler.items():
+                for per in per_listesi:
+                    for tas in self.el:
+                        if Rules.islem_dogrula(per, tas):
+                            ise_yarayan_taslar.add(tas)
+            
+            atilabilecek_taslar = [tas for tas in self.el if tas not in ise_yarayan_taslar]
+            
+            if atilabilecek_taslar:
+                return random.choice(atilabilecek_taslar)
+
+        return random.choice(self.el)
 
     @logger.log_function
     def atilan_tasi_degerlendir(self, oyun, atilan_tas):
@@ -29,9 +43,16 @@ class AIPlayer(Player):
         
         gorev = oyun.mevcut_gorev
         
-        # *** DÜZELTME: Hatalı min_tas tahmini kaldırıldı. ***
-        # Artık AI, 3'lü kombinasyonlardan başlayarak elindeki taş sayısına kadar tüm
-        # olası perleri dener. Bu, "Küt 4" gibi görevleri kaçırmasını engeller.
+        # DÜZELTME: Görev "Çift" ise özel kontrol yap
+        if gorev == "Çift":
+            # Elinde 14 veya daha fazla taş varsa, 14 tanesiyle çift açmayı dene
+            if len(self.el) >= 14:
+                for combo in combinations(self.el, 14):
+                    if Rules.per_dogrula(list(combo), gorev):
+                        return [tas.id for tas in combo]
+            return None # Çift bulunamazsa None döndür
+
+        # Diğer görevler için eski mantık devam eder
         for size in range(3, len(self.el) + 1):
             for combo in combinations(self.el, size):
                 if Rules.per_dogrula(list(combo), gorev):

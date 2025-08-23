@@ -3,7 +3,7 @@ from gui.visuals import Visuals
 from gui.buttons import ButtonManager
 from gui.status import StatusBar
 from state import GameState
-from .arayuzguncelle import arayuzu_guncelle
+from gui.arayuzguncelle import arayuzu_guncelle
 
 class Arayuz:
     def __init__(self, oyun):
@@ -75,6 +75,33 @@ class Arayuz:
                 self.statusbar.guncelle("Bu taş bu pere işlenemez.")
         else:
             self.statusbar.guncelle("İşlemek için elinizden 1 taş seçmelisiniz.")
+            
+    def joker_secim_penceresi_ac(self, secenekler, joker, secilen_taslar):
+        """Joker için olası taşları kullanıcıya sunan bir pencere açar."""
+        secim_penceresi = tk.Toplevel(self.pencere)
+        secim_penceresi.title("Joker Seçimi")
+        secim_penceresi.geometry("300x150")
+        secim_penceresi.transient(self.pencere) # Ana pencerenin üzerinde kalmasını sağlar
+        secim_penceresi.grab_set() # Diğer pencerelerle etkileşimi engeller
+
+        tk.Label(secim_penceresi, text="Joker'i hangi taş yerine kullanmak istersiniz?").pack(pady=10)
+
+        buttons_frame = tk.Frame(secim_penceresi)
+        buttons_frame.pack(pady=10)
+
+        for tas_secenek in secenekler:
+            img = self.visuals.tas_resimleri.get(tas_secenek.imaj_adi)
+            if img:
+                b = tk.Button(buttons_frame, image=img,
+                              command=lambda s=tas_secenek: self.joker_secildi(s, joker, secilen_taslar, secim_penceresi))
+                b.pack(side=tk.LEFT, padx=5)
+
+    def joker_secildi(self, secilen_deger, joker, secilen_taslar, pencere):
+        """Kullanıcı joker seçimini yaptığında çağrılır."""
+        pencere.destroy()
+        self.oyun.el_ac_joker_ile(0, secilen_taslar, joker, secilen_deger)
+        self.secili_tas_idler = []
+        self.arayuzu_guncelle()
     
     def ai_oynat(self):
         if self.oyun.oyun_bitti_mi(): return
@@ -101,7 +128,7 @@ class Arayuz:
 
         ai = oyun.oyuncular[sira_index]
         if oyun.oyun_durumu == GameState.ILK_TUR:
-             tas = ai.karar_ver_ve_at()
+             tas = ai.karar_ver_ve_at(oyun)
              if tas: oyun.tas_at(sira_index, tas.id)
              self.arayuzu_guncelle()
 
@@ -114,18 +141,17 @@ class Arayuz:
                 if ac_kombo:
                     oyun.el_ac(sira_index, ac_kombo)
             
-            # *** DÜZELTME: Hatalı olan satır düzeltildi ***
             if oyun.oyuncunun_tas_cekme_ihtiyaci(sira_index):
                  oyun.desteden_cek(sira_index)
             
             if len(ai.el) % 3 != 1:
-                tas = ai.karar_ver_ve_at()
+                tas = ai.karar_ver_ve_at(oyun)
                 if tas: oyun.tas_at(sira_index, tas.id)
 
             self.arayuzu_guncelle()
 
         elif oyun.oyun_durumu == GameState.NORMAL_TAS_ATMA:
-             tas = ai.karar_ver_ve_at()
+             tas = ai.karar_ver_ve_at(oyun)
              if tas: oyun.tas_at(sira_index, tas.id)
              self.arayuzu_guncelle()
 

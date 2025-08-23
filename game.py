@@ -1,3 +1,4 @@
+# ... (dosyanın başındaki importlar aynı kalacak) ...
 from deck import Deck
 from player import Player
 from ai import AIPlayer
@@ -9,6 +10,7 @@ import random
 from baslat import baslat_oyun
 
 class Game:
+    # ... (__init__, baslat, _sira_ilerlet, tas_at, atilan_tasi_al, atilan_tasi_gecti, desteden_cek fonksiyonları aynı kalacak) ...
     def __init__(self):
         self.oyuncular = [
             Player("Oyuncu 1 (Siz)"),
@@ -161,8 +163,6 @@ class Game:
         secilen_taslar = [tas for tas in oyuncu.el if tas.id in tas_id_list]
         jokerler = [t for t in secilen_taslar if t.renk == 'joker']
 
-        # Eğer görev karmaşık bir görevse (örn: "Küt 3 + Seri 3") ve joker varsa,
-        # basit joker kontrolünü atla ve doğrudan ana doğrulamaya git.
         is_complex_mission = self.mevcut_gorev and " " in self.mevcut_gorev
         
         if jokerler and not is_complex_mission:
@@ -182,26 +182,51 @@ class Game:
                 elif len(secenekler) == 1:
                     joker.joker_yerine_gecen = secenekler[0]
         
-        # Karmaşık görevler veya jokersiz eller doğrudan bu fonksiyona gelir.
         return self._eli_ac_ve_isle(oyuncu_index, secilen_taslar)
 
     @logger.log_function
     def islem_yap(self, isleyen_oyuncu_idx, per_sahibi_idx, per_idx, tas_id):
+        isleyen_oyuncu = self.oyuncular[isleyen_oyuncu_idx]
         if not self.acilmis_oyuncular[isleyen_oyuncu_idx]: return False
         if isleyen_oyuncu_idx != self.sira_kimde_index: return False
-        tas = next((t for t in self.oyuncular[isleyen_oyuncu_idx].el if t.id == tas_id), None)
+        
+        tas = next((t for t in isleyen_oyuncu.el if t.id == tas_id), None)
         if not tas: return False
+        
         if per_sahibi_idx not in self.acilan_perler or per_idx >= len(self.acilan_perler[per_sahibi_idx]):
             return False
+            
         per = self.acilan_perler[per_sahibi_idx][per_idx]
-        
+
+        # DÜZELTME: Okey'i geri alma mantığı eklendi
+        for i, per_tasi in enumerate(per):
+            if per_tasi.renk == "joker" and per_tasi.joker_yerine_gecen:
+                yerine_gecen = per_tasi.joker_yerine_gecen
+                if yerine_gecen.renk == tas.renk and yerine_gecen.deger == tas.deger:
+                    logger.info(f"Oyuncu {isleyen_oyuncu_idx} bir okey alıyor.")
+                    # Okeyi oyuncuya ver
+                    joker = per.pop(i)
+                    joker.joker_yerine_gecen = None # Okeyin değerini sıfırla
+                    isleyen_oyuncu.tas_al(joker)
+                    
+                    # Oyuncunun taşını alıp pere ekle
+                    isleyen_oyuncu.tas_at(tas.id)
+                    per.append(tas)
+                    isleyen_oyuncu.el_sirala()
+                    
+                    # İşlem sonrası oyuncunun hala taş atması gerekiyor
+                    self.oyun_durumu = GameState.NORMAL_TAS_ATMA
+                    return True
+
+        # Normal işleme mantığı (okey alma yoksa)
         if Rules.islem_dogrula(per, tas):
-            self.oyuncular[isleyen_oyuncu_idx].tas_at(tas.id)
+            isleyen_oyuncu.tas_at(tas.id)
             per.append(tas)
             self.oyun_durumu = GameState.NORMAL_TAS_ATMA
             return True
+            
         return False
-    
+
     @logger.log_function
     def oyuncunun_tas_cekme_ihtiyaci(self, oyuncu_index):
         if self.oyun_durumu == GameState.ILK_TUR: return False

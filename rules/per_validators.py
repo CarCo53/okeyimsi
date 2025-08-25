@@ -1,3 +1,5 @@
+# rules/per_validators.py dosyasının tam içeriği
+
 from itertools import combinations
 
 def kut_mu(taslar, min_sayi=3):
@@ -12,11 +14,14 @@ def kut_mu(taslar, min_sayi=3):
             continue
         degerler.add(gercek_tas.deger)
         renkler.add(gercek_tas.renk)
+    # DÜZELTME: Farklı renk kontrolü jokerleri de hesaba katmalı.
     if len(renkler) != len([t for t in taslar if (t.joker_yerine_gecen or t.renk != "joker")]):
         return False
     if len(degerler) > 1:
         return False
     return min_sayi <= len(taslar) <= 4
+
+# rules/per_validators.py dosyasının sadece seri_mu fonksiyonunu güncelleyin:
 
 def seri_mu(taslar, min_sayi=3):
     """Aynı renkte, ardışık en az min_sayi taş (joker dahil). 12-13-1 kuralını içerir."""
@@ -25,6 +30,7 @@ def seri_mu(taslar, min_sayi=3):
     renk = None
     sayilar = []
     joker_sayisi = 0
+    
     for t in taslar:
         gercek_tas = t.joker_yerine_gecen if t.joker_yerine_gecen else t
         if t.renk == "joker" and not t.joker_yerine_gecen:
@@ -35,24 +41,29 @@ def seri_mu(taslar, min_sayi=3):
         elif gercek_tas.renk != renk:
             return False
         sayilar.append(gercek_tas.deger)
+
     if not sayilar:
         return joker_sayisi >= min_sayi
-    
-    # Sayılarda tekrar eden eleman varsa direkt geçersiz say
+        
     if len(set(sayilar)) != len(sayilar):
         return False
         
     sayilar.sort()
     
-    # DÜZELTME: 12-13-1 kuralı için özel kontrol
-    is_12_13_1_serisi = set(sayilar) == {1, 12, 13}
-    if is_12_13_1_serisi and len(sayilar) + joker_sayisi >= 3:
-        return True
+    # DÜZELTME: 10-11-12-13-1 gibi uzun döngüsel serileri kontrol et
+    is_dongusel = 1 in sayilar and sayilar[-1] > 10 # 1 ve yüksek bir sayı varsa döngüsel olabilir
+    if is_dongusel:
+        dongusel_kopya = [14 if s == 1 else s for s in sayilar]
+        dongusel_kopya.sort()
+        gereken_bosluk_dongusel = (dongusel_kopya[-1] - dongusel_kopya[0] + 1) - len(dongusel_kopya)
+        if joker_sayisi >= gereken_bosluk_dongusel:
+            # Döngüsel seride 1'den sonra 2, 13'ten önce 12 olmalı, arada büyük boşluk olmamalı
+            if dongusel_kopya[-1] - dongusel_kopya[0] < len(taslar) + joker_sayisi:
+                return True
 
     # Normal seri kontrolü
-    gereken_joker = (sayilar[-1] - sayilar[0] + 1) - len(sayilar)
-    return joker_sayisi >= gereken_joker
-
+    gereken_bosluk_normal = (sayilar[-1] - sayilar[0] + 1) - len(sayilar)
+    return joker_sayisi >= gereken_bosluk_normal
 def coklu_per_dogrula(taslar, tip, min_sayi, adet):
     if len(taslar) != min_sayi * adet:
         return False
@@ -70,6 +81,11 @@ def karma_per_dogrula(taslar, min_sayi):
         seri_taslar = [t for t in taslar if t not in kut_kombinasyonu]
         if kut_mu(list(kut_kombinasyonu), min_sayi) and seri_mu(seri_taslar, min_sayi):
             return (list(kut_kombinasyonu), seri_taslar)
+    # YENİ: Ters kombinasyonu da kontrol et (önce seri, sonra küt)
+    for seri_kombinasyonu in combinations(taslar, min_sayi):
+        kut_taslar = [t for t in taslar if t not in seri_kombinasyonu]
+        if seri_mu(list(seri_kombinasyonu), min_sayi) and kut_mu(kut_taslar, min_sayi):
+            return (list(seri_kombinasyonu), kut_taslar)
     return False
 
 def cift_per_mu(taslar):

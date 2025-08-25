@@ -77,12 +77,11 @@ class Arayuz:
             self.statusbar.guncelle("İşlemek için elinizden 1 taş seçmelisiniz.")
             
     def joker_secim_penceresi_ac(self, secenekler, joker, secilen_taslar):
-        """Joker için olası taşları kullanıcıya sunan bir pencere açar."""
         secim_penceresi = tk.Toplevel(self.pencere)
         secim_penceresi.title("Joker Seçimi")
         secim_penceresi.geometry("300x150")
-        secim_penceresi.transient(self.pencere) # Ana pencerenin üzerinde kalmasını sağlar
-        secim_penceresi.grab_set() # Diğer pencerelerle etkileşimi engeller
+        secim_penceresi.transient(self.pencere)
+        secim_penceresi.grab_set()
 
         tk.Label(secim_penceresi, text="Joker'i hangi taş yerine kullanmak istersiniz?").pack(pady=10)
 
@@ -97,14 +96,16 @@ class Arayuz:
                 b.pack(side=tk.LEFT, padx=5)
 
     def joker_secildi(self, secilen_deger, joker, secilen_taslar, pencere):
-        """Kullanıcı joker seçimini yaptığında çağrılır."""
         pencere.destroy()
         self.oyun.el_ac_joker_ile(0, secilen_taslar, joker, secilen_deger)
         self.secili_tas_idler = []
         self.arayuzu_guncelle()
     
     def ai_oynat(self):
-        if self.oyun.oyun_bitti_mi(): return
+        # DÜZELTME: Oyun bittiğinde arayüzü son bir kez güncelleyip döngüden çık
+        if self.oyun.oyun_bitti_mi():
+            self.arayuzu_guncelle()
+            return
         
         oyun = self.oyun
         
@@ -112,8 +113,7 @@ class Arayuz:
             degerlendiren_idx = oyun.atilan_tas_degerlendirici.siradaki()
             if degerlendiren_idx != 0:
                 ai = oyun.oyuncular[degerlendiren_idx]
-                if not oyun.atilan_taslar:
-                    return
+                if not oyun.atilan_taslar: return
                 atilan_tas = oyun.atilan_taslar[-1]
                 if ai.atilan_tasi_degerlendir(oyun, atilan_tas):
                     oyun.atilan_tasi_al(degerlendiren_idx)
@@ -123,8 +123,7 @@ class Arayuz:
             return
 
         sira_index = oyun.sira_kimde_index
-        if sira_index == 0:
-            return
+        if sira_index == 0: return
 
         ai = oyun.oyuncular[sira_index]
         if oyun.oyun_durumu == GameState.ILK_TUR:
@@ -144,7 +143,7 @@ class Arayuz:
             if oyun.oyuncunun_tas_cekme_ihtiyaci(sira_index):
                  oyun.desteden_cek(sira_index)
             
-            if len(ai.el) % 3 != 1:
+            if len(ai.el) % 3 != 1 and not (len(ai.el) == 0 and oyun.acilmis_oyuncular[sira_index]):
                 tas = ai.karar_ver_ve_at(oyun)
                 if tas: oyun.tas_at(sira_index, tas.id)
 

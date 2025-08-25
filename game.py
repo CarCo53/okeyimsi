@@ -1,3 +1,5 @@
+# game.py dosyasının tamamını bununla değiştirin.
+
 from deck import Deck
 from player import Player
 from ai import AIPlayer
@@ -43,6 +45,22 @@ class Game:
             self.tur_numarasi += 1
             logger.info(f"Yeni tura geçildi: Tur {self.tur_numarasi}")
         self.sira_kimde_index = yeni_index
+        
+    def _per_sirala(self, per):
+        """YENİ: 12-13-1 gibi özel serileri doğru sıralayan fonksiyon."""
+        if not Rules._per_seri_mu(per):
+            per.sort(key=lambda t: (t.joker_yerine_gecen or t).deger or 0)
+            return
+
+        sayilar = sorted([(t.joker_yerine_gecen or t).deger for t in per if (t.joker_yerine_gecen or t).deger])
+        if 1 in sayilar and 13 in sayilar:
+            # 1'i 14 olarak kabul et ve sırala, sonra geri düzelt
+            def sort_key(t):
+                val = (t.joker_yerine_gecen or t).deger or 0
+                return 14 if val == 1 else val
+            per.sort(key=sort_key)
+        else:
+            per.sort(key=lambda t: (t.joker_yerine_gecen or t).deger or 0)
 
     @logger.log_function
     def tas_at(self, oyuncu_index, tas_id):
@@ -136,6 +154,20 @@ class Game:
         oyuncu = self.oyuncular[oyuncu_index]
         dogrulama_sonucu = False
         
+        # Seçilen taşların jokerlerine değer atanmış mı kontrol et
+        for tas in secilen_taslar:
+            if tas.renk == 'joker' and not tas.joker_yerine_gecen:
+                 # Yapay zeka için otomatik atama
+                 if isinstance(oyuncu, AIPlayer):
+                     olasi_secimler = Rules.joker_icin_olasi_taslar(secilen_taslar)
+                     if olasi_secimler and olasi_secimler.get(tas):
+                         tas.joker_yerine_gecen = olasi_secimler.get(tas)[0] # İlk olasılığı seç
+                     else:
+                          return {"status": "fail", "message": "AI için joker değeri atanamadı."}
+                 else:
+                     return {"status": "fail", "message": "Joker için bir değer seçilmedi."}
+
+
         if not self.acilmis_oyuncular[oyuncu_index]:
             dogrulama_sonucu = Rules.per_dogrula(secilen_taslar, self.mevcut_gorev)
             if dogrulama_sonucu:
@@ -152,8 +184,11 @@ class Game:
                 oyuncu.tas_at(tas.id)
             
             if isinstance(dogrulama_sonucu, tuple):
+                for per in dogrulama_sonucu:
+                    self._per_sirala(per)
                 self.acilan_perler[oyuncu_index].extend(dogrulama_sonucu)
             else: 
+                self._per_sirala(secilen_taslar)
                 self.acilan_perler[oyuncu_index].append(secilen_taslar)
             
             oyuncu.el_sirala()
@@ -169,15 +204,15 @@ class Game:
         oyuncu = self.oyuncular[oyuncu_index]
         secilen_taslar = [tas for tas in oyuncu.el if tas.id in tas_id_list]
         jokerler = [t for t in secilen_taslar if t.renk == 'joker']
-
-        is_complex_mission = self.mevcut_gorev and " " in self.mevcut_gorev
         
-        if jokerler and not is_complex_mission:
+        if jokerler:
             olasi_secimler = Rules.joker_icin_olasi_taslar(secilen_taslar)
-            if olasi_secimler is None: return {"status": "fail", "message": "Geçersiz per."}
-
+            if olasi_secimler is None:
+                return {"status": "fail", "message": "Geçersiz per."}
+            
+            # DÜZELTME: Joker için birden fazla seçenek varsa ve oyuncu insansa sor
             for joker, secenekler in olasi_secimler.items():
-                if len(secenekler) > 1:
+                if len(secenekler) > 1 and not isinstance(oyuncu, AIPlayer):
                     return { "status": "joker_choice_needed", "options": secenekler, "joker": joker, "secilen_taslar": secilen_taslar }
                 elif len(secenekler) == 1:
                     joker.joker_yerine_gecen = secenekler[0]
@@ -198,17 +233,12 @@ class Game:
             
         per = self.acilan_perler[per_sahibi_idx][per_idx]
         
-        def per_sirala(p):
-            degerler = [(t.joker_yerine_gecen or t).deger for t in p if (t.joker_yerine_gecen or t).deger is not None]
-            if 1 in degerler and 13 in degerler:
-                p.sort(key=lambda t: ((t.joker_yerine_gecen or t).deger or 0) % 14)
-            else:
-                p.sort(key=lambda t: (t.joker_yerine_gecen or t).deger or 0)
-
+        # Joker alma kuralı öncelikli kontrolü
         for i, per_tasi in enumerate(per):
             if per_tasi.renk == "joker" and per_tasi.joker_yerine_gecen:
                 yerine_gecen = per_tasi.joker_yerine_gecen
                 if yerine_gecen.renk == tas.renk and yerine_gecen.deger == tas.deger:
+                    logger.info(f"Oyuncu {isleyen_oyuncu_idx} jokeri alıyor.")
                     joker = per.pop(i)
                     joker.joker_yerine_gecen = None
                     isleyen_oyuncu.tas_al(joker)
@@ -216,18 +246,16 @@ class Game:
                     isleyen_oyuncu.tas_at(tas.id)
                     per.append(tas)
                     isleyen_oyuncu.el_sirala()
-                    
-                    if Rules._per_seri_mu(per): per_sirala(per)
+                    self._per_sirala(per)
                     
                     self.oyun_durumu = GameState.NORMAL_TAS_ATMA
                     return True
 
+        # Normal işleme kuralı
         if Rules.islem_dogrula(per, tas):
             isleyen_oyuncu.tas_at(tas.id)
             per.append(tas)
-            
-            if Rules._per_seri_mu(per): per_sirala(per)
-
+            self._per_sirala(per)
             self.oyun_durumu = GameState.NORMAL_TAS_ATMA
             return True
             

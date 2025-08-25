@@ -1,3 +1,5 @@
+# gui/arayuzguncelle.py dosyasının tam içeriği
+
 import tkinter as tk
 from state import GameState
 
@@ -30,30 +32,46 @@ def arayuzu_guncelle(arayuz):
         tk.Label(oyuncu_per_cercevesi, text=f"{oyuncu_adi}:", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=5)
 
         for per_idx, per in enumerate(per_listesi):
-            per_cerceve_dis = tk.Frame(oyuncu_per_cercevesi, borderwidth=2, relief="groove")
+            per_cerceve_dis = tk.Frame(oyuncu_per_cercevesi, borderwidth=1, relief="sunken", padx=2, pady=2)
             per_cerceve_dis.pack(side=tk.LEFT, padx=5)
-            # YENİ: Per çerçevesini tıklanabilir yap
             per_cerceve_dis.bind("<Button-1>", lambda e, o_idx=oyuncu_idx, p_idx=per_idx: arayuz.per_sec(o_idx, p_idx))
 
-
             for tas in per:
-                # DÜZELTME: Okeyler için renkli çerçeve mantığı
-                cerceve_renk = "#F0F0F0" # Varsayılan arkaplan rengi
-                padding = 1
+                bg_renk = "#F0F0F0"
+                cerceve_renk = "black"
+                cerceve_kalinligi = 0
+                
                 if tas.joker_yerine_gecen:
-                    cerceve_renk = tas.joker_yerine_gecen.renk
-                    padding = 3
+                    renk = tas.joker_yerine_gecen.renk
+                    
+                    # DÜZELTME: Türkçe renk isimlerini İngilizce'ye çevir
+                    renk_map = {
+                        "kirmizi": "red",
+                        "mavi": "blue",
+                        "sari": "yellow",
+                        "siyah": "black"
+                    }
+                    tk_renk = renk_map.get(renk, "black") # Bilinmeyen bir renk gelirse siyah yap
 
-                tas_cerceve = tk.Frame(per_cerceve_dis, bg=cerceve_renk, padx=padding, pady=padding)
+                    bg_renk_map = {
+                        "red": "#ffdddd",
+                        "blue": "#ddddff",
+                        "yellow": "#ffffcc",
+                        "black": "#d3d3d3"
+                    }
+                    bg_renk = bg_renk_map.get(tk_renk, "#F0F0F0")
+                    cerceve_renk = tk_renk
+                    cerceve_kalinligi = 2
+
+                tas_cerceve = tk.Frame(per_cerceve_dis, bg=bg_renk)
                 tas_cerceve.pack(side=tk.LEFT)
-                # YENİ: Taş çerçevesini de tıklanabilir yap
-                tas_cerceve.bind("<Button-1>", lambda e, o_idx=oyuncu_idx, p_idx=per_idx: arayuz.per_sec(o_idx, p_idx))
-
-
+                
                 img = arayuz.visuals.tas_resimleri.get(tas.imaj_adi)
                 if img:
-                    label = tk.Label(tas_cerceve, image=img, borderwidth=0)
-                    label.pack()
+                    label = tk.Label(tas_cerceve, image=img, borderwidth=0, bg=bg_renk,
+                                     highlightbackground=cerceve_renk, highlightcolor=cerceve_renk, 
+                                     highlightthickness=cerceve_kalinligi)
+                    label.pack(padx=1, pady=1)
                     label.bind("<Button-1>", lambda e, o_idx=oyuncu_idx, p_idx=per_idx: arayuz.per_sec(o_idx, p_idx))
 
     for widget in arayuz.deste_frame.winfo_children():
@@ -83,8 +101,9 @@ def arayuzu_guncelle(arayuz):
     arayuz.button_manager.butonlari_guncelle(oyun.oyun_durumu)
 
     if oyun.oyun_durumu == GameState.BITIS:
-        kazanan = oyun.oyuncular[oyun.kazanan_index]
-        arayuz.statusbar.guncelle(f"Oyun Bitti! Kazanan: {kazanan.isim}. Yeni oyuna başlayabilirsiniz.")
+        kazanan = oyun.oyuncular[oyun.kazanan_index] if oyun.kazanan_index is not None else "Bilinmiyor"
+        kazanan_isim = kazanan.isim if hasattr(kazanan, 'isim') else kazanan
+        arayuz.statusbar.guncelle(f"Oyun Bitti! Kazanan: {kazanan_isim}. Yeni oyuna başlayabilirsiniz.")
     else:
         oyuncu_durum = "Açılmış" if oyun.acilmis_oyuncular[0] else f"Görev: {oyun.mevcut_gorev}"
         sira_bilgi = f"Sıra: {oyun.oyuncular[oyun.sira_kimde_index].isim}"

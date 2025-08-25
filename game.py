@@ -2,7 +2,7 @@
 
 from deck import Deck
 from player import Player
-from ai import AIPlayer
+from ai_manager import AIPlayer
 from rules_manager import Rules
 from state import GameState, AtilanTasDegerlendirici
 from log import logger
